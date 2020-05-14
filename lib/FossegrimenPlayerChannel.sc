@@ -93,7 +93,7 @@ FossegrimenPlayerChannel {
 		^result;
 	}
 
-	playRandomSoundFile{|fadeInTime, fadeOutTime, onStop, onPlay|
+	playRandomSoundFile{|fadeInTime, fadeOutTime, onStop, onPlay, onFailure|
 		var pathName;
 		var duration;
 		pathName = player.getRandomSoundFilePathNameForChannel(this);
@@ -101,7 +101,7 @@ FossegrimenPlayerChannel {
 		"Playing random sound file: % %".format(pathName, duration).postln;
 		this.playSoundFile(
 			pathName, duration, fadeInTime, fadeOutTime,
-			onStop, onPlay
+			onStop, onPlay, onFailure
 		);
 	}
 
@@ -123,11 +123,13 @@ FossegrimenPlayerChannel {
 	playSoundFile{
 		|
 		soundFilePathName, duration, fadeInTime,
-		fadeOutTime, onStop, onPlay
+		fadeOutTime, onStop, onPlay, onFailure
 		|
 		forkIfNeeded{
 			var cond = Condition.new;
 			var buffer;
+			var failToLoadBufferProcess;
+			var bufferDidLoad = false;
 			//if a synth is playing we free that and forget about it
 			if(synth.isPlaying, {
 				var oldSynth = synth;
@@ -143,45 +145,67 @@ FossegrimenPlayerChannel {
 				soundFilePathName,
 				action: {|b|
 					buffer = b;
+					bufferDidLoad = true;
+					"\t2-buffer was loaded: %".format(soundFilePathName.fileName).postln;
 					cond.test = true;
 					cond.signal;
 				}
 			);
+			"\t1-Waiting for buffer to load: % %".format(soundFilePathName.fileName, buffer).postln;
+			failToLoadBufferProcess = fork{
+				//this is the max wait time until we call it a buffer load failure
+				0.2.wait; 
+				cond.test = true;
+				cond.signal;
+			};
 			cond.wait;
-			this.currentSoundFilePathName_(soundFilePathName);
-			synth = this.prGetStrategyFunction(\startSynth).value(
-				this, soundFilePathName, buffer, duration, fadeInTime,
-				fadeOutTime
-			);
-			onPlay.value((
-				synth: synth,
-				duration: duration,
-				soundFilePathName: soundFilePathName
-			));
-			if(elapsedSecondsResponder.notNil, {
-				elapsedSecondsResponder.free;
-				elapsedSecondsResponder.remove;
-			});
-			elapsedSecondsResponder = OSCFunc(
-				{|msg, time, addr, port|
-					this.elapsedSeconds_(msg[3]);
-				},
-				path: '/elapsedSeconds',
-				srcID: player.server.addr,
-				argTemplate: [synth.nodeID]
-			);
-			synth.onFree({|node|
-				//This tests if the synth stopped itself, and that
-				//a new synth has not taken over the role as the
-				//sound file playing synth.
-				if(node === synth, {
-					if(isPlaying, {
-						this.stopSoundFile(stopSynth: false, onStop: onStop);
-					})
+			if(bufferDidLoad, {
+				"\t3-Now starting the synth: %".format(soundFilePathName.fileName).postln;
+				this.currentSoundFilePathName_(soundFilePathName);
+				synth = this.prGetStrategyFunction(\startSynth).value(
+					this, soundFilePathName, buffer, duration, fadeInTime,
+					fadeOutTime
+				);
+				onPlay.value((
+					synth: synth,
+					duration: duration,
+					soundFilePathName: soundFilePathName
+				));
+				if(elapsedSecondsResponder.notNil, {
+					elapsedSecondsResponder.free;
+					elapsedSecondsResponder.remove;
 				});
+				elapsedSecondsResponder = OSCFunc(
+					{|msg, time, addr, port|
+						this.elapsedSeconds_(msg[3]);
+					},
+					path: '/elapsedSeconds',
+					srcID: player.server.addr,
+					argTemplate: [synth.nodeID]
+				);
+				synth.onFree({|node|
+					//This tests if the synth stopped itself, and that
+					//a new synth has not taken over the role as the
+					//sound file playing synth.
+					if(node === synth, {
+						if(isPlaying, {
+							this.stopSoundFile(stopSynth: false, onStop: onStop);
+						})
+					});
+				});
+				isPlaying = true;
+				this.changed(\isPlaying);
+			}, {
+				//If the buffer didn't load, or the confirm message from the
+				//server somehow was lost, it is deemed that the buffer didn't
+				//load. In either case we free the buffer in order to cover both
+				//cases.
+				//The onFailure callback can from the call site for this method
+				//decide whether to retry the soundFile or not.
+				"BUFFER DID NOT LOAD".warn;
+				this.freeSoundFile(soundFilePathName);
+				onFailure.value(this, soundFilePathName, buffer);
 			});
-			isPlaying = true;
-			this.changed(\isPlaying);
 		}
 	}
 

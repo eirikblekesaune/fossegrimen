@@ -50,6 +50,14 @@ FosselydPlayer : FossegrimenPlayer {
 						duration = ev[\duration] - runtime.getTimevarValue(\a);
 						cond.test = true;
 						cond.signal;
+					},
+					onFailure: {|...args|
+						"Buffer failed to load for: %".format(
+							args
+						).warn;
+						duration = 0.1;
+						cond.test = true;
+						cond.signal;
 					}
 				);
 				cond.wait;

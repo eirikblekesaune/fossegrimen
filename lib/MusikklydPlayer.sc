@@ -119,6 +119,13 @@ MusikklydPlayer : FossegrimenPlayer {
 								onStop: {|ev|
 									cond.test = true;
 									cond.signal;
+								},
+								onFailure: {|...args|
+									"\tBuffer failed to load for: %. Will retry now.".format(
+										args
+									).warn;
+									cond.test = true;
+									cond.signal;
 								}
 							);
 							cond.wait;
