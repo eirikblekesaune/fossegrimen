@@ -146,7 +146,8 @@ FossegrimenView {
 		label, unitSize, font, color,
 		model, offValue, onValue,
 		offColor, onColor, clickable,
-		listenTo, callback
+		listenTo, callback,
+		postInitAction
 		|
 		var width = unitSize * 8;
 		var height = unitSize * 6;
@@ -222,6 +223,7 @@ FossegrimenView {
 		);
 		view.fixedSize_(Size(width, height));
 		view.background_(color);
+		postInitAction.value(view, widgets);
 		^view;
 	}
 
@@ -596,9 +598,52 @@ FossegrimenView {
 	*buildButtonPanelView{|runtime, settings|
 		var unitSize, color, font;
 		var buildTimevarCtrlView;
+		var widgets = ();
+		var initAlpha;
 		unitSize = settings['unitSize'];
 		color = settings[\color];
 		font = settings[\font];
+		if(runtime.isPlaying, {
+			initAlpha = 1.0
+		}, {
+			initAlpha = 0.2
+		});
+		widgets.put(\modeButton, 
+			this.buildLargeToggleButton(
+				"MODE", unitSize, font, color,
+				runtime, 'absence', 'presence',
+				Color.red.alpha_(initAlpha),
+				Color.green.alpha_(initAlpha),
+				runtime.isPlaying,
+				\mode,
+				{|val|
+					runtime.mode_(val);
+				},
+				postInitAction: {|v, w|
+					var col = color.deepCopy;
+					SimpleController(runtime).put(\isPlaying, {
+						{
+							var buttonStates;
+							w[\button].acceptsMouse_(runtime.isPlaying);
+							w[\button].canFocus_(runtime.isPlaying);
+							buttonStates = w[\button].states.copy;
+							if(runtime.isPlaying, {
+								buttonStates = [
+									buttonStates[0].put(2, Color.red.alpha_(1.0)),
+									buttonStates[1].put(2, Color.green.alpha_(1.0)),
+								]
+							}, {
+								buttonStates = [
+									buttonStates[0].put(2, Color.red.alpha_(0.2)),
+									buttonStates[1].put(2, Color.green.alpha_(0.2)),
+								]
+							});
+							w[\button].states_(buttonStates);
+						}.defer;
+					});
+				}
+			)
+		);
 		^HLayout(
 			this.buildLargeToggleButton(
 				"PLAY", unitSize, font, color,
@@ -609,19 +654,11 @@ FossegrimenView {
 					runtime.play_(val);
 				}
 			),
-			this.buildLargeToggleButton(
-				"MODE", unitSize, font, color,
-				runtime, 'absence', 'presence',
-				Color.red, Color.green, true,
-				\mode,
-				{|val|
-					runtime.mode_(val);
-				}
-			),
+			widgets[\modeButton],
 			this.buildLargeToggleButton(
 				"SENSOR", unitSize, font, color,
 				runtime, false, true,
-				Color.red.alpha_(0.3), Color.green.alpha_(0.3), false,
+				Color.red.alpha_(0.2), Color.green.alpha_(0.2), false,
 				\presenceSensor,
 				{|val|
 					runtime.presenceSensor_(val)

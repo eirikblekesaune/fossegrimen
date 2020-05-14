@@ -8,7 +8,7 @@ FossegrimenRuntime{
 	var <timevarPresets;
 	var <currentTimevarPreset;
 	var <isPlaying = false;
-	var <mode;
+	var <mode = \absence;
 	var <presenceSensor = false;
 	var <sensorMuted = false;
 	var runLoop;
