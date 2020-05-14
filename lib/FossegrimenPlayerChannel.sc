@@ -31,14 +31,14 @@ FossegrimenPlayerChannel {
 					channel, soundFilePathName, buffer,
 					duration, fadeInTime, action
 					|
-					"Playing sound file from disk".postln;
+					//"Playing sound file from disk".postln;
 					{DiskIn.ar(buffer.numChannels, buffer.bufnum).poll}.play;
 				},
 				stopSynth: {
 					|
 					channel, synth, fadeOutTime, action
 					|
-					"Stopping sound file from disk".postln;
+					//"Stopping sound file from disk".postln;
 					synth.free();
 					synth.server.sync;
 					action.value;
@@ -51,7 +51,7 @@ FossegrimenPlayerChannel {
 					duration, fadeInTime, fadeOutTime
 					|
 					var synth, bundle;
-					"Starting sound file from RAM".postln;
+					//"Starting sound file from RAM".postln;
 					bundle = player.server.makeBundle(false, {
 						synth = Synth(
 							"bufferPlayer%".format(buffer.numChannels).asSymbol,
@@ -75,7 +75,7 @@ FossegrimenPlayerChannel {
 					|
 					channel, synth, fadeOutTime, action
 					|
-					"Stopping sound file from RAM".postln;
+					//"Stopping sound file from RAM".postln;
 					synth.onFree({
 						action.value;
 					});
@@ -146,12 +146,10 @@ FossegrimenPlayerChannel {
 				action: {|b|
 					buffer = b;
 					bufferDidLoad = true;
-					"\t2-buffer was loaded: %".format(soundFilePathName.fileName).postln;
 					cond.test = true;
 					cond.signal;
 				}
 			);
-			"\t1-Waiting for buffer to load: % %".format(soundFilePathName.fileName, buffer).postln;
 			failToLoadBufferProcess = fork{
 				//this is the max wait time until we call it a buffer load failure
 				0.2.wait; 
@@ -160,7 +158,6 @@ FossegrimenPlayerChannel {
 			};
 			cond.wait;
 			if(bufferDidLoad, {
-				"\t3-Now starting the synth: %".format(soundFilePathName.fileName).postln;
 				this.currentSoundFilePathName_(soundFilePathName);
 				synth = this.prGetStrategyFunction(\startSynth).value(
 					this, soundFilePathName, buffer, duration, fadeInTime,
@@ -202,7 +199,7 @@ FossegrimenPlayerChannel {
 				//cases.
 				//The onFailure callback can from the call site for this method
 				//decide whether to retry the soundFile or not.
-				"BUFFER DID NOT LOAD".warn;
+				"BUFFER DID NOT LOAD: %".format(soundFilePathName).warn;
 				this.freeSoundFile(soundFilePathName);
 				onFailure.value(this, soundFilePathName, buffer);
 			});

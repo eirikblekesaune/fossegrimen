@@ -211,13 +211,13 @@ FossegrimenPlayer{
 	}
 
 	prStartPlaying{
-		"Started playing player: %".format(this.class.name).postln;
+		//"Started playing player: %".format(this.class.name).postln;
 		isPlaying = true;
 		this.changed(\isPlaying);
 	}
 
 	prStopPlaying{
-		"Stopped playing player: %".format(this.class.name).postln;
+		//"Stopped playing player: %".format(this.class.name).postln;
 		isPlaying = false;
 		this.changed(\isPlaying);
 	}

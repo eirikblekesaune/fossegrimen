@@ -51,7 +51,12 @@ FossegrimenRuntime{
 		});
 		this.prInitSoundFilesFolders;
 		if(config.includesKey("startPlayAfterInit"), {
-			startPlayAfterInit = config["startPlayAfterInit"];
+			var str = config["startPlayAfterInit"];
+			if(str == "true", {
+				startPlayAfterInit = true;
+			}, {
+				startPlayAfterInit = false;
+			});
 		});
 
 		fork{
@@ -221,8 +226,14 @@ FossegrimenRuntime{
 	*startServer{|runtime, cond, serverOptions|
 		var server, maxBootTimeChecker;
 		var serverWasBooted = false;
+		var o = ServerOptions.new;
 		server = Server.default;
-		server.options = serverOptions ?? {ServerOptions.new;};
+		if(serverOptions.notNil, {
+			if(serverOptions.includesKey("protocol"), {
+				o.protocol_(serverOptions["protocol"].asSymbol);
+			});
+		});
+		server.options = o;
 		server.waitForBoot({
 			serverWasBooted = true;
 			cond.test = true;
