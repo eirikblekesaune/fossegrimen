@@ -1,5 +1,5 @@
 includePaths:
-    - ~/Dropbox/Konsulent/JornEgsethUtsmykking/lib
+    - ~/git/eirikblekesaune/fossegrimen/lib
 excludePaths:
     []
 postInlineWarnings: false
