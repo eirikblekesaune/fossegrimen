@@ -1,0 +1,5 @@
+{
+    "fosselyderFolder": "~/sounds/fossegrimen/fosselyder",
+    "musikklyderFolder": "~/sounds/fossegrimen/FOSSEGRIMEN_MUS",
+    "soundFileStrategy": "fromRAM"
+}

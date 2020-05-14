@@ -1,0 +1,5 @@
+#!/bin/bash
+
+PROJECT_DIR="$(dirname $(realpath $0))/.."
+echo $PROJECT_DIR
+/usr/bin/env -S sclang -l $PROJECT_DIR/data/sclang_conf.yaml -d $PROJECT_DIR $PROJECT_DIR/src/FossegrimenStartup.scd
