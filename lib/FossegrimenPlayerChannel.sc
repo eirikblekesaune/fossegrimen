@@ -98,7 +98,7 @@ FossegrimenPlayerChannel {
 		var duration;
 		pathName = player.getRandomSoundFilePathNameForChannel(this);
 		duration = player.getSoundFileDuration(pathName.fullPath);
-		"Playing random sound file: % %".format(pathName, duration).postln;
+		//"Playing random sound file: % %".format(pathName, duration).postln;
 		this.playSoundFile(
 			pathName, duration, fadeInTime, fadeOutTime,
 			onStop, onPlay, onFailure

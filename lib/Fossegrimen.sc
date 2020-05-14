@@ -20,6 +20,8 @@ FossegrimenRuntime{
 	var presenceModeActivationOverride = false;
 	var presenceModeDeactivator;
 	var presenceModeReactivator;
+	var autoTurnoffMusikklydProcess;
+	var willReactivatePresenceMode = false;
 
 	*new{arg projectRootFolder, doWhenInitialized;
 		^super.new.init(projectRootFolder, doWhenInitialized);
@@ -384,6 +386,22 @@ FossegrimenRuntime{
 				switch(mode,
 				\absence, {
 					"Absence mode started".postln;
+					if(willReactivatePresenceMode, {
+						var reactivationSecs = this.getTimevarValue(\k);
+						"Will reactivate presence mode in % (k) seconds".format(
+							reactivationSecs
+						).postln;
+						if(presenceModeReactivator.notNil, {
+							presenceModeReactivator.stop;
+						});
+						presenceModeReactivator = fork{
+							reactivationSecs.wait;
+							fork{
+								"Reactivated presence mode".postln;
+								this.mode_(\presence);
+							}
+						};
+					});
 					fosselydStarter = fork{
 						this.getTimevarValue(\e).wait;
 						players['fosselyd'].play_(true, (
@@ -392,6 +410,7 @@ FossegrimenRuntime{
 					};
 				},
 				\presence, {
+					willReactivatePresenceMode = false;
 					fosselydStopper = fork{
 						this.getTimevarValue(\c).wait;
 						players['fosselyd'].play_(false, (
@@ -399,22 +418,30 @@ FossegrimenRuntime{
 						))
 					};
 					presenceModeDeactivator = fork{
-						"Wait for auto deactivate presence mode".postln;
-						this.getTimevarValue(\h).wait;
+						var presenceModeDeactivateSecs;
+						presenceModeDeactivateSecs = this.getTimevarValue(\h);
+						"Waiting % secs (h) for auto deactivate presence mode".format(
+							presenceModeDeactivateSecs
+						).postln;
+						presenceModeDeactivateSecs.wait;
 						fork{
-							"Deactivated presence mode".postln;
+							"Auto-Deactivated presence mode. Will reactivate.".postln;
+							willReactivatePresenceMode = true;
 							this.mode_(\absence);
-							if(presenceModeReactivator.notNil, {
-								presenceModeReactivator.stop;
-							});
-							presenceModeReactivator = fork{
-								{this.getTimevarValue(\k)}.value.wait;
-								fork{
-									"Reactivated presence mode".postln;
-									this.mode_(\presence);
-								}
-							};
 						}
+					};
+					if(autoTurnoffMusikklydProcess.notNil, {
+						autoTurnoffMusikklydProcess.stop;
+					});
+					autoTurnoffMusikklydProcess = fork{
+						var autoTurnoffMusikklydSecs;
+						autoTurnoffMusikklydSecs = this.getTimevarValue(\g);
+						"Waiting % (g) seconds for musikklyd auto turnoff".format(
+							autoTurnoffMusikklydSecs
+						).postln;
+						autoTurnoffMusikklydSecs.wait;
+						"Auto-Turning off musikklyd now".postln;
+						players[\musikklyd].play_(false);
 					};
 					"Presence mode started".postln;
 					players['musikklyd'].play_(true);

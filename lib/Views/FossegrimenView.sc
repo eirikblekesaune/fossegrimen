@@ -188,7 +188,6 @@ FossegrimenView {
 		updater = updater ? {|widgets, whoChanged, whatChanged|
 			var buttonValue;
 			var val = whoChanged.perform(listenTo ? \val);
-			"updater: % %".format(val, listenTo).postln;
 			if(onValue.isNil and: {offValue.isNil} and: {val.isKindOf(Boolean)}, {
 				buttonValue = val.asInteger;
 			}, {

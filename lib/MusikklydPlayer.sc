@@ -3,7 +3,6 @@ MusikklydPlayer : FossegrimenPlayer {
 	var <soundBankNames;
 	var <currentSoundBankName;
 	var <subProcesses;
-	var autoTurnoffProcess;
 
 	prInitChannels{
 		channels.addAll([
@@ -88,15 +87,6 @@ MusikklydPlayer : FossegrimenPlayer {
 	}
 
 	prStartPlaying{|settings|
-		if(autoTurnoffProcess.notNil, {
-			autoTurnoffProcess.stop;
-		});
-		autoTurnoffProcess = fork{
-			'Waiting for turnoff'.postln;
-			runtime.getTimevarValue(\g).wait;
-			"Will tur off now".postln;
-			this.play_(false);
-		};
 		playProcess = Routine({
 			var channelSelector = Pshuf(channels, inf).asStream;
 			this.goToNextBank;
