@@ -1,5 +1,9 @@
 {
     "fosselyderFolder": "~/sounds/fossegrimen/fosselyder",
     "musikklyderFolder": "~/sounds/fossegrimen/FOSSEGRIMEN_MUS",
-    "soundFileStrategy": "fromRAM"
+    "soundFileStrategy": "fromRAM",
+    "startPlayAfterInit": true,
+    "serverOptions": {
+        "protocol": "tcp"
+    }
 }
