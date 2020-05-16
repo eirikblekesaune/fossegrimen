@@ -1,5 +1,10 @@
 #!/bin/bash
 
 PROJECT_DIR="$(dirname $(realpath $0))/.."
-echo $PROJECT_DIR
-/usr/bin/env -S sclang -l $PROJECT_DIR/data/sclang_conf.yaml -d $PROJECT_DIR $PROJECT_DIR/src/FossegrimenStartup.scd
+SCLANG_CONF_PATH=$(realpath $PROJECT_DIR/data/sclang_conf.yaml)
+if [ ! -f $SCLANG_CONF_PATH ]; then
+	echo "$SCLANG_CONF_PATH"
+	touch $SCLANG_CONF_PATH
+	echo "includePaths: [ $(realpath $PROJECT_DIR/lib) ]" > $SCLANG_CONF_PATH
+fi
+/usr/bin/env -S sclang -l $SCLANG_CONF_PATH -d $PROJECT_DIR $PROJECT_DIR/src/FossegrimenStartup.scd

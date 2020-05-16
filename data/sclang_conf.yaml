@@ -1,5 +1,0 @@
-includePaths:
-    - ~/git/eirikblekesaune/fossegrimen/lib
-excludePaths:
-    []
-postInlineWarnings: false
