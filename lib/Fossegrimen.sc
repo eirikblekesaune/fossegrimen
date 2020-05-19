@@ -115,7 +115,7 @@ FossegrimenRuntime{
 
 			// max <prescence mode> duration, time before 
 			//overrideDeactivation
-			h: (val: 180, spec: timevarSpec.value),
+			h: (val: 60, spec: timevarSpec.value),
 
 			// time between new file start after <prescence mode> 
 			//was activated.
@@ -367,7 +367,7 @@ FossegrimenRuntime{
 	}
 
 
-	mode_{|val, forceMode = false|
+	mode_{|val, forceMode = false, cancelPendingPresenceModeReactivation = false|
 		if([\absence, \presence].includes(val), {
 			if(mode != val or: {forceMode}, {
 				mode = val;
@@ -383,12 +383,15 @@ FossegrimenRuntime{
 				if(presenceModeReactivator.notNil, {
 					presenceModeReactivator.stop;
 				});
+				if(cancelPendingPresenceModeReactivation, {
+					willReactivatePresenceMode = false;
+				});
 				switch(mode,
 				\absence, {
-					"Absence mode started".postln;
+					"[STATE] - Absence mode started".postln;
 					if(willReactivatePresenceMode, {
 						var reactivationSecs = this.getTimevarValue(\k);
-						"Will reactivate presence mode in % (k) seconds".format(
+						"[STATE] - Will reactivate presence mode in % (k) seconds".format(
 							reactivationSecs
 						).postln;
 						if(presenceModeReactivator.notNil, {
@@ -397,9 +400,33 @@ FossegrimenRuntime{
 						presenceModeReactivator = fork{
 							reactivationSecs.wait;
 							fork{
-								"Reactivated presence mode".postln;
-								this.mode_(\presence);
+								"[STATE] - Checking if we will reactivate presence mode".postln;
+								//Checking again here if mode wasn't changed
+								//from 'outside', either with sensor or button,
+								//in which case the willReactivatePresenceMode
+								//will be set to false
+								if(willReactivatePresenceMode, {
+									"[STATE] - Reactivated presence mode".postln;
+									this.mode_(\presence);
+								}, {
+									"[STATE] - Not reactivating presence mode".postln;
+								});
 							}
+						};
+					});
+					if(autoTurnoffMusikklydProcess.notNil, {
+						autoTurnoffMusikklydProcess.stop;
+					});
+					if(players[\musikklyd].isPlaying, {
+						autoTurnoffMusikklydProcess = fork{
+							var autoTurnoffMusikklydSecs;
+							autoTurnoffMusikklydSecs = this.getTimevarValue(\g);
+							"[STATE] - Waiting % (g) seconds for musikklyd auto turnoff".format(
+								autoTurnoffMusikklydSecs
+							).postln;
+							autoTurnoffMusikklydSecs.wait;
+							"[STATE] - Auto-Turning off musikklyd now".postln;
+							players[\musikklyd].play_(false);
 						};
 					});
 					fosselydStarter = fork{
@@ -412,38 +439,32 @@ FossegrimenRuntime{
 				\presence, {
 					willReactivatePresenceMode = false;
 					fosselydStopper = fork{
-						this.getTimevarValue(\c).wait;
+						var time = this.getTimevarValue(\c);
+						var fadeOutTime;
+						"[STATE] - Will fade out fosselyd in % seconds".format(time).postln;
+						time.wait;
+						fadeOutTime = this.getTimevarValue(\d);
+						"[STATE] - Starting fosselyd fadeout with fadeout time: % seconds".format(
+							fadeOutTime
+						).postln;
 						players['fosselyd'].play_(false, (
-							fadeOutTime: this.getTimevarValue(\d)
+							fadeOutTime: fadeOutTime
 						))
 					};
 					presenceModeDeactivator = fork{
 						var presenceModeDeactivateSecs;
 						presenceModeDeactivateSecs = this.getTimevarValue(\h);
-						"Waiting % secs (h) for auto deactivate presence mode".format(
+						"[STATE] - Will auto deactivate presence mode in % seconds (h)".format(
 							presenceModeDeactivateSecs
 						).postln;
 						presenceModeDeactivateSecs.wait;
 						fork{
-							"Auto-Deactivated presence mode. Will reactivate.".postln;
+							"[STATE] - Auto deactiving presence mode. Will reactivate.".postln;
 							willReactivatePresenceMode = true;
 							this.mode_(\absence);
 						}
 					};
-					if(autoTurnoffMusikklydProcess.notNil, {
-						autoTurnoffMusikklydProcess.stop;
-					});
-					autoTurnoffMusikklydProcess = fork{
-						var autoTurnoffMusikklydSecs;
-						autoTurnoffMusikklydSecs = this.getTimevarValue(\g);
-						"Waiting % (g) seconds for musikklyd auto turnoff".format(
-							autoTurnoffMusikklydSecs
-						).postln;
-						autoTurnoffMusikklydSecs.wait;
-						"Auto-Turning off musikklyd now".postln;
-						players[\musikklyd].play_(false);
-					};
-					"Presence mode started".postln;
+					"[STATE] - Presence mode started".postln;
 					players['musikklyd'].play_(true);
 				});
 				this.changed(\mode);
@@ -476,7 +497,7 @@ FossegrimenRuntime{
 				}, {
 					newMode = \absence;
 				});
-				this.mode_(newMode);
+				this.mode_(newMode, cancelPendingPresenceModeReactivation: true);
 			});
 		});
 	}
