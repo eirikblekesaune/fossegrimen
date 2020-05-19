@@ -144,17 +144,17 @@ FossegrimenRuntime{
 			});
 		});
 		timevarPresets.put(\default, (
-			a: 10,
-			b: 10,
-			c: 12,
-			d: 15,
-			e: 2,
-			f: 26,
-			g: 46,
-			h: 180,
-			i: 2,
-			j: 0,
-			k: 20
+			a: timevars[\a].val,
+			b: timevars[\b].val,
+			c: timevars[\c].val,
+			d: timevars[\d].val,
+			e: timevars[\e].val,
+			f: timevars[\f].val,
+			g: timevars[\g].val,
+			h: timevars[\h].val,
+			i: timevars[\i].val,
+			j: timevars[\j].val,
+			k: timevars[\k].val
 		));
 		this.currentTimevarPreset_(\default);
 	}
