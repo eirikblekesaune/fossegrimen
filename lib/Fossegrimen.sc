@@ -441,7 +441,7 @@ FossegrimenRuntime{
 					fosselydStopper = fork{
 						var time = this.getTimevarValue(\c);
 						var fadeOutTime;
-						"[STATE] - Will fade out fosselyd in % seconds".format(time).postln;
+						"[STATE] - Will fade out fosselyd in % seconds (c)".format(time).postln;
 						time.wait;
 						fadeOutTime = this.getTimevarValue(\d);
 						"[STATE] - Starting fosselyd fadeout with fadeout time: % seconds".format(
@@ -449,7 +449,16 @@ FossegrimenRuntime{
 						).postln;
 						players['fosselyd'].play_(false, (
 							fadeOutTime: fadeOutTime
-						))
+						));
+						((this.getTimevarValue(\e) + this.getTimevarValue(\h)) - fadeOutTime - time).wait;
+						"[STATE] - Will fade fosselyd back again if mode is still 'presence'".postln;
+						while({this.mode == \presence}, {
+							var fadeInTime = this.getTimevarValue(\f);
+							"[STATE] - Presence mode still on, replaying fosselyd with % sec fade in time (f)".format(
+								fadeInTime
+							).postln;
+							players['fosselyd'].play_(true, (fadeInTime: fadeTime)));
+						});
 					};
 					presenceModeDeactivator = fork{
 						var presenceModeDeactivateSecs;

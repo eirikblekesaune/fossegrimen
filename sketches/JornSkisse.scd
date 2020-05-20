@@ -1,14 +1,14 @@
-NetAddr("127.0.0.1", 57121).sendMsg('/fossegrimen/presenceSensor', false);
-NetAddr("127.0.0.1", 57121).sendMsg('/fossegrimen/presenceSensor', true);
+NetAddr("127.0.0.1", 57120).sendMsg('/fossegrimen/presenceSensor', false);
+NetAddr("127.0.0.1", 57120).sendMsg('/fossegrimen/presenceSensor', true);
 
-NetAddr("127.0.0.1", 57121).sendMsg('/fossegrimen/play', false);
-NetAddr("127.0.0.1", 57121).sendMsg('/fossegrimen/play', true);
+NetAddr("127.0.0.1", 57120).sendMsg('/fossegrimen/play', false);
+NetAddr("127.0.0.1", 57120).sendMsg('/fossegrimen/play', true);
 
-NetAddr("127.0.0.1", 57121).sendMsg('/fossegrimen/mode', \presence);
-NetAddr("127.0.0.1", 57121).sendMsg('/fossegrimen/mode', \absence);
+NetAddr("127.0.0.1", 57120).sendMsg('/fossegrimen/mode', \presence);
+NetAddr("127.0.0.1", 5712).sendMsg('/fossegrimen/mode', \absence);
 
-NetAddr("127.0.0.1", 57121).sendMsg('/fossegrimen/muteSensor', false);
-NetAddr("127.0.0.1", 57121).sendMsg('/fossegrimen/muteSensor', true);
+NetAddr("127.0.0.1", 57120).sendMsg('/fossegrimen/muteSensor', false);
+NetAddr("127.0.0.1", 57120).sendMsg('/fossegrimen/muteSensor', true);
 
 
 1.0.asTimeString(dropDaysIfPossible: false).drop(3).drop(-4)
