@@ -616,7 +616,7 @@ FossegrimenView {
 				runtime.isPlaying,
 				\mode,
 				{|val|
-					runtime.mode_(val, cancelPendingPresenceModeReactivation: true);
+					runtime.mode_(val);
 				},
 				postInitAction: {|v, w|
 					var col = color.deepCopy;
