@@ -3,6 +3,7 @@ MusikklydPlayer : FossegrimenPlayer {
 	var <soundBankNames;
 	var <currentSoundBankName;
 	var <subProcesses;
+	var channelsStoppedListeners;
 
 	prInitChannels{
 		channels.addAll([
@@ -87,6 +88,9 @@ MusikklydPlayer : FossegrimenPlayer {
 	}
 
 	prStartPlaying{|settings|
+		if(channelsStoppedListeners.notNil, {
+			this.prRemoveChannelsStoppedListeners;
+		});
 		playProcess = Routine({
 			var channelSelector = Pshuf(channels, inf).asStream;
 			this.goToNextBank;
@@ -130,9 +134,59 @@ MusikklydPlayer : FossegrimenPlayer {
 	}
 
 	prStopPlaying{|settings|
-		playProcess.stop;
-		subProcesses.do(_.stop);
-		super.prStopPlaying;
+		fork{
+			var onAllStopped;
+			var channelsArePlaying = Array.newClear(channels.size);
+			var allChannelsStopped = Condition.new;
+			if(settings.notNil, {
+				if(settings.includesKey(\onAllStopped), {
+					onAllStopped = settings[\onAllStopped];
+				});
+			});
+			if(channelsStoppedListeners.notNil, {
+				this.prRemoveChannelsStoppedListeners;
+			}, {
+				channelsStoppedListeners = List.new;
+			});
+			//We check isPlaying from the moment the stop call has been made
+			// to avoid any subsequent stop calls to not interfere with the
+			// current one. This is something that may occur if the modes are switched
+			// with a short time interval.
+			channels.do({|channel, i|
+				var channelListener;
+				var maxStopTime;
+				var maxStopTimeProcess;
+				channelsArePlaying.put(i, channel.isPlaying); //update the state
+
+				channelListener = SimpleController(channel).put(\isPlaying, {
+						channel.removeDependant(channelListener);
+						channelsArePlaying.put(i, false);
+						runtime.notify("Stopped channel: % test: % ".format(
+							i, channelsArePlaying
+						));
+						maxStopTimeProcess.stop;
+						allChannelsStopped.test = channelsArePlaying.every({|x| x == false});
+						allChannelsStopped.signal;
+					}
+				);
+				channelsStoppedListeners.add(channelListener);
+			});
+			playProcess.stop;
+			subProcesses.do(_.stop);
+			super.prStopPlaying;
+			allChannelsStopped.wait;
+			onAllStopped.value;
+		}
 	}
 
+	prRemoveChannelsStoppedListeners{
+		channels.do({|channel|
+			channelsStoppedListeners.do({|listener|
+				if(channel.dependants.includes(listener), {
+					channel.removeDependant(listener);
+				});
+			});
+		});
+		channelsStoppedListeners = nil;
+	}
 }

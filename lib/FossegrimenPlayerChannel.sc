@@ -76,10 +76,12 @@ FossegrimenPlayerChannel {
 					channel, synth, fadeOutTime, action
 					|
 					//"Stopping sound file from RAM".postln;
-					synth.onFree({
-						action.value;
+					player.server.makeBundle(nil, {
+						synth.onFree({
+							action.value;
+						});
+						synth.release(fadeOutTime);
 					});
-					synth.release(fadeOutTime);
 				}
 			)
 		)

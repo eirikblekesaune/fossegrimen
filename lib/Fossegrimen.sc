@@ -15,13 +15,11 @@ FossegrimenRuntime{
 	var masterVolume;
 	var <soundFileStrategy = \fromdisk;
 	var <oscResponders;
-	var <fosselydStarter;
-	var <fosselydStopper;
-	var presenceModeActivationOverride = false;
-	var presenceModeDeactivator;
-	var presenceModeReactivator;
-	var autoTurnoffMusikklydProcess;
-	var willReactivatePresenceMode = false;
+	var presenceModeProcess;
+	var presenceModeMusikklydProcess;
+	var presenceModeFosselydProcess;
+	var absenceProcess;
+	var <hangConditions;
 
 	*new{arg projectRootFolder, doWhenInitialized;
 		^super.new.init(projectRootFolder, doWhenInitialized);
@@ -47,6 +45,8 @@ FossegrimenRuntime{
 			];
 		});
 		this.prInitTimevars;
+
+		hangConditions = IdentitySet.new;
 
 		if(config.includesKey("soundFileStrategy"), {
 			soundFileStrategy = config["soundFileStrategy"].asSymbol;
@@ -352,13 +352,8 @@ FossegrimenRuntime{
 	prStopPlaying{
 		if(this.isPlaying, {
 			isPlaying = false;
-			if(presenceModeDeactivator.notNil, {
-				presenceModeDeactivator.stop;
-			});
-			if(presenceModeReactivator.notNil, {
-				presenceModeReactivator.stop;
-			});
 			players.do({|player| player.play_(false)});
+			this.prStopProcesses;
 			this.changed(\isPlaying);
 			"Stopped playing".postln;
 		}, {
@@ -366,115 +361,141 @@ FossegrimenRuntime{
 		});
 	}
 
+	prStopProcesses {
+		if(presenceModeProcess.notNil, {
+			presenceModeProcess.stop;
+		});
+		if(presenceModeFosselydProcess.notNil, {
+			presenceModeFosselydProcess.stop;
+		});
+		if(presenceModeMusikklydProcess.notNil, {
+			presenceModeMusikklydProcess.stop;
+		});
+		if(absenceProcess.notNil, {
+			absenceProcess.stop;
+		});
+	}
 
-	mode_{|val, forceMode = false, cancelPendingPresenceModeReactivation = false|
+	mode_{|val, forceMode = false|
 		if([\absence, \presence].includes(val), {
 			if(mode != val or: {forceMode}, {
 				mode = val;
-				if(fosselydStarter.notNil, {
-					fosselydStarter.stop;
-				});
-				if(fosselydStopper.notNil, {
-					fosselydStopper.stop;
-				});
-				if(presenceModeDeactivator.notNil, {
-					presenceModeDeactivator.stop;
-				});
-				if(presenceModeReactivator.notNil, {
-					presenceModeReactivator.stop;
-				});
-				if(cancelPendingPresenceModeReactivation, {
-					willReactivatePresenceMode = false;
-				});
 				switch(mode,
 				\absence, {
-					"[STATE] - Absence mode started".postln;
-					if(willReactivatePresenceMode, {
-						var reactivationSecs = this.getTimevarValue(\k);
-						"[STATE] - Will reactivate presence mode in % (k) seconds".format(
-							reactivationSecs
-						).postln;
-						if(presenceModeReactivator.notNil, {
-							presenceModeReactivator.stop;
-						});
-						presenceModeReactivator = fork{
-							reactivationSecs.wait;
-							fork{
-								"[STATE] - Checking if we will reactivate presence mode".postln;
-								//Checking again here if mode wasn't changed
-								//from 'outside', either with sensor or button,
-								//in which case the willReactivatePresenceMode
-								//will be set to false
-								if(willReactivatePresenceMode, {
-									"[STATE] - Reactivated presence mode".postln;
-									this.mode_(\presence);
-								}, {
-									"[STATE] - Not reactivating presence mode".postln;
-								});
-							}
-						};
+					this.notify("Absence mode started");
+					if(presenceModeProcess.notNil, {
+						presenceModeProcess.stop;
 					});
-					if(autoTurnoffMusikklydProcess.notNil, {
-						autoTurnoffMusikklydProcess.stop;
+					if(presenceModeFosselydProcess.notNil, {
+						presenceModeFosselydProcess.stop;
 					});
-					if(players[\musikklyd].isPlaying, {
-						autoTurnoffMusikklydProcess = fork{
-							var autoTurnoffMusikklydSecs;
-							autoTurnoffMusikklydSecs = this.getTimevarValue(\g);
-							"[STATE] - Waiting % (g) seconds for musikklyd auto turnoff".format(
-								autoTurnoffMusikklydSecs
-							).postln;
-							autoTurnoffMusikklydSecs.wait;
-							"[STATE] - Auto-Turning off musikklyd now".postln;
-							players[\musikklyd].play_(false);
-						};
+					if(presenceModeMusikklydProcess.notNil, {
+						presenceModeMusikklydProcess.stop;
 					});
-					fosselydStarter = fork{
-						this.getTimevarValue(\e).wait;
+					absenceProcess = fork{
+						var fosselydPreWait = this.getTimevarValue(\e);
+						var fosselydFadeInTime;
+						players['musikklyd'].play_(false);
+						this.notify("Waiting % seconds (e) before starting fosselyd in absence mode".format(
+							fosselydPreWait
+						));
+						this.wait(fosselydPreWait, "Starting fosselyd");
+						fosselydFadeInTime = this.getTimevarValue(\f);
+						this.notify("Starting absence mode fosselyd with % seconds fade in time (f)".format(
+							fosselydFadeInTime
+						));
 						players['fosselyd'].play_(true, (
-							fadeInTime: this.getTimevarValue(\f)
+							fadeInTime: fosselydFadeInTime
 						));
 					};
 				},
 				\presence, {
-					willReactivatePresenceMode = false;
-					fosselydStopper = fork{
-						var time = this.getTimevarValue(\c);
-						var fadeOutTime;
-						"[STATE] - Will fade out fosselyd in % seconds (c)".format(time).postln;
-						time.wait;
-						fadeOutTime = this.getTimevarValue(\d);
-						"[STATE] - Starting fosselyd fadeout with fadeout time: % seconds".format(
-							fadeOutTime
-						).postln;
-						players['fosselyd'].play_(false, (
-							fadeOutTime: fadeOutTime
-						));
-						((this.getTimevarValue(\e) + this.getTimevarValue(\h)) - fadeOutTime - time).wait;
-						"[STATE] - Will fade fosselyd back again if mode is still 'presence'".postln;
-						while({this.mode == \presence}, {
-							var fadeInTime = this.getTimevarValue(\f);
-							"[STATE] - Presence mode still on, replaying fosselyd with % sec fade in time (f)".format(
-								fadeInTime
-							).postln;
-							players['fosselyd'].play_(true, (fadeInTime: fadeTime)));
-						});
+					if(absenceProcess.notNil, {
+						absenceProcess.stop;
+					});
+					presenceModeProcess = fork{
+						var lastMusikklydDonePlaying = Condition.new;
+						this.notify("Presence mode started");
+						presenceModeFosselydProcess = fork{
+							while({this.mode == \presence}, {
+								var secondsBeforeFosselydStartsFadeout = this.getTimevarValue(\c);
+								var fosselydFadeOutTime;
+								var secondsBeforeRestartFosselyd;
+								var secondsBeforeFosselydRevamp;
+								var fosselydFadeInTime;
+								this.notify("Will fade out fosselyd in % seconds (c)".format(
+									secondsBeforeFosselydStartsFadeout
+								));
+								this.wait(secondsBeforeFosselydStartsFadeout, "Fade out fosselyd");
+								//secondsBeforeFosselydStartsFadeout.wait;
+								fosselydFadeOutTime = this.getTimevarValue(\d);
+								this.notify("Starting fosselyd fadeout with fadeout time: % seconds (d)".format(
+									fosselydFadeOutTime
+								));
+								players['fosselyd'].play_(false, (
+									fadeOutTime: fosselydFadeOutTime
+								));
+								secondsBeforeRestartFosselyd = this.getTimevarValue(\h) + this.getTimevarValue(\e);
+								this.notify("Will wait % seconds before restart fosselyd (h + e) - (c + d)".format(
+									secondsBeforeRestartFosselyd - (secondsBeforeFosselydStartsFadeout - fosselydFadeOutTime)
+								));
+								this.wait(
+									secondsBeforeRestartFosselyd - (secondsBeforeFosselydStartsFadeout - fosselydFadeOutTime),
+									"Restart fosslyd in presence mode"
+								);
+								fosselydFadeInTime = this.getTimevarValue(\f);
+								this.notify("Restarting fosselyd in presence mode with fade in time: %".format(
+									fosselydFadeInTime
+								));
+								players['fosselyd'].play_(true, (
+									fadeInTime: fosselydFadeInTime
+								));
+								this.notify("Will wait for all musikklyd channels to end before considering revamp fosselyd");
+								this.hang(lastMusikklydDonePlaying, "Fosslyd wait for musikklyd channels done playing");
+								secondsBeforeFosselydRevamp = this.getTimevarValue(\k);
+								this.notify("All musiklyd channels done. Will wait % seconds (k) before considering revamp".format(
+									secondsBeforeFosselydRevamp
+								));
+								this.wait(secondsBeforeFosselydRevamp, "Fosselyd wait before considering revamp");
+								this.notify("Revamping fosselyd in presence mode if mode is still presence");
+							});
+						};
+						presenceModeMusikklydProcess = fork{
+							var musikklydMaxDuration;
+							while({this.mode == \presence}, {
+								var secondsBeforeMusikklydRevamp;
+								musikklydMaxDuration = this.getTimevarValue(\g) + this.getTimevarValue(\h);
+								this.notify("Starting musikklyd with max duration % seconsd (g + h)".format(
+									musikklydMaxDuration
+								));
+								players['musikklyd'].play_(true);
+								lastMusikklydDonePlaying.test = false;
+								this.wait(musikklydMaxDuration, "Turning off musikklyd max duration");
+								players['musikklyd'].play_(false, (
+									onAllStopped: {
+										this.notify("All channels stopped");
+										lastMusikklydDonePlaying.test = true;
+										lastMusikklydDonePlaying.signal;
+									}
+								));
+								this.notify("Will wait for all musiklyd channels to end");
+								this.hang(lastMusikklydDonePlaying, "Wait for musikklyd channels done playing");
+								secondsBeforeMusikklydRevamp = this.getTimevarValue(\k);
+								this.notify("Will wait % seconds before considering to revamp musikklyd".format(
+									secondsBeforeMusikklydRevamp
+								));
+								this.wait(secondsBeforeMusikklydRevamp, "Starting musikklyd revamp");
+								this.notify("Revamping musikklyd now is mode is presence");
+							});
+						};
 					};
-					presenceModeDeactivator = fork{
-						var presenceModeDeactivateSecs;
-						presenceModeDeactivateSecs = this.getTimevarValue(\h);
-						"[STATE] - Will auto deactivate presence mode in % seconds (h)".format(
-							presenceModeDeactivateSecs
-						).postln;
-						presenceModeDeactivateSecs.wait;
-						fork{
-							"[STATE] - Auto deactiving presence mode. Will reactivate.".postln;
-							willReactivatePresenceMode = true;
-							this.mode_(\absence);
-						}
-					};
-					"[STATE] - Presence mode started".postln;
-					players['musikklyd'].play_(true);
+//					//wait g + h
+//					//si fra at dette blir siste runde til player
+//					//wait i k sekunder
+//					//hvis presence
+//					//  starte musikken igjen med ny bank
+//					//  akkurat som om noen gikk inn i sensoren igjen
+//					//
 				});
 				this.changed(\mode);
 			})
@@ -493,10 +514,10 @@ FossegrimenRuntime{
 		if(presenceSensor != aBool, {
 			if(aBool, {
 				presenceSensor = true;
-				"Someone arrived".postln;
+				this.notify("Someone arrived");
 			}, {
 				presenceSensor = false;
-				"Someone left".postln;
+				this.notify("Someone left");
 			});
 			this.changed(\presenceSensor);
 			if(sensorMuted.not and: {isPlaying}, {
@@ -506,7 +527,7 @@ FossegrimenRuntime{
 				}, {
 					newMode = \absence;
 				});
-				this.mode_(newMode, cancelPendingPresenceModeReactivation: true);
+				this.mode_(newMode);
 			});
 		});
 	}
@@ -584,6 +605,10 @@ FossegrimenRuntime{
 						nil
 					).margins_(0).spacing_(0)
 				).margins_(0).spacing_(0),
+				HLayout(
+					FossegrimenView.buildCountdownPanel(this, viewSettings),
+					FossegrimenView.buildWaitConditionsPanel(this, viewSettings)
+				),
 				nil
 			)
 		);
@@ -593,7 +618,7 @@ FossegrimenRuntime{
 	}
 
 	stop{
-		"Stopping Fossegrimen".postln;
+		this.notify("Stopping Fossegrimen");
 		fork{
 			var cond = Condition.new;
 			var serverQuitMaxWaitProcess;
@@ -630,4 +655,51 @@ FossegrimenRuntime{
 			0.exit;
 		};
 	}
+
+	wait{|val, description|
+		var countdown;
+		var parentThread = thisThread;
+		//"Waiting for % seconds".format(val).postln;
+		//"\t%".format(description).postln;
+		countdown = fork{
+			var remaining = val;
+			var tickDuration = 1.0;
+			loop{
+				//"% in % seconds".format(description, remaining).postln;
+				countdown.changed(\update, remaining);
+				remaining = remaining - tickDuration;
+				tickDuration.wait;
+				if(parentThread.isPlaying.not, {
+					countdown.changed(\countdownStopped, description);
+					thisThread.stop;
+				});
+			}
+		};
+		this.changed(\countdownStarted, countdown, val, description);
+		val.wait;
+		countdown.stop;
+		countdown.changed(\countdownStopped, description);
+	}
+
+	hang{|cond, description|
+		//"Waiting for condition".format(cond).postln;
+		//"\t%".format(description).postln;
+		if(hangConditions.includes(cond).not, {
+			hangConditions.add(cond);
+			this.changed(\waitConditionStarted, cond, description);
+			cond.wait;
+			hangConditions.remove(cond);
+			cond.changed(\waitConditionEnded, description);
+		}, {
+			//If already registered we just wait here
+			cond.changed(\additionalDependency, description);
+			cond.wait;
+		});
+	}
+
+	notify{|str|
+		var timestr = Date.localtime.format("%H:%M:%S");
+		"[%] - %".format(timestr, str).postln;
+	}
 }
+

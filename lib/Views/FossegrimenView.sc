@@ -687,4 +687,160 @@ FossegrimenView {
 			)
 		)
 	}
+
+	*buildCountdownPanel{|runtime, settings|
+		var view;
+		var font;
+		var countdownViews = List.new;
+		var refreshCountdownViews = {
+			view.layout_(
+				VLayout(
+					*countdownViews ++ [nil]
+				).spacing_(1)
+			)
+		};
+		if(settings.notNil, {
+			if(settings.includesKey(\font), {
+				font = settings[\font];
+			})
+		});
+		font = font ? Font("Avenir", 12);
+
+		SimpleController(runtime).put(\countdownStarted, {
+			|
+			runtime, what, countdownProcess, waitTime, description
+			|
+			{
+				var countdownView;
+				var controller;
+				var makeCountdownString = {|str, val|
+					"% in % seconds, % seconds remaining".format(
+						str, waitTime.asInteger, val.asInteger
+					)
+				};
+				countdownView = StaticText()
+				.string_(makeCountdownString.value(description, waitTime))
+				.font_(font.copy.size_(10));
+
+				countdownViews.add(countdownView);
+				refreshCountdownViews.value;
+				
+				controller = SimpleController(countdownProcess)
+				.put(\update, {|proc, what, remaining|
+					{
+						//"Countdown update: %".format(remaining).postln;
+						countdownView.string_(
+							makeCountdownString.value(description, remaining)
+						);
+					}.defer;
+				})
+				.put(\countdownStopped, {|...args|
+					{
+						//"Countdown stopped: %".format(args).postln;
+						countdownProcess.removeDependant(controller);
+						countdownViews.remove(countdownView);
+						countdownView.remove;
+						refreshCountdownViews.value;
+					}.defer;
+				});
+			}.defer;
+		});
+		view = View()
+		.layout_(
+			VLayout(*countdownViews)
+		);
+
+		view.minHeight_(100);
+		^view;
+	}
+
+	*buildWaitConditionsPanel{|runtime, settings|
+		var view;
+		var font;
+		var waitConditionsViews = List.new;
+		var refreshViews = {
+			view.layout_(
+				VLayout(
+					*waitConditionsViews ++ [nil]
+				).spacing_(1)
+			)
+		};
+		if(settings.notNil, {
+			if(settings.includesKey(\font), {
+				font = settings[\font];
+			})
+		});
+		font = font ? Font("Avenir", 12);
+
+		SimpleController(runtime).put(\waitConditionStarted, {
+			|
+			runtime, what, condition, description
+			|
+			{
+				var waitCondView;
+				var label, button;
+				var controller;
+				var makeLabelString = {|str|
+					"Waiting for %".format(str);
+				};
+				label = StaticText()
+				.string_(makeLabelString.value(description))
+				.font_(font.copy.size_(10));
+
+				button = Button()
+				.font_(font.copy.size_(10))
+				.states_([["force", Color.black, Color.red]])
+				.action_({
+					"Forced condition end: %".format(
+						description
+					).postln;
+					condition.test = true;
+					condition.signal;
+				});
+
+				waitCondView = View().layout_(
+					HLayout(label, button)
+				);
+				if(waitConditionsViews.isEmpty.not, {
+					if(waitConditionsViews.last == Color.green.alpha_(0.1), {
+						waitCondView.background_(Color.blue.alpha_(0.1));
+					}, {
+						waitCondView.background_(Color.green.alpha_(0.1));
+					});
+				}, {
+					waitCondView.background_(Color.green.alpha_(0.1));
+				});
+
+				waitConditionsViews.add(waitCondView);
+				refreshViews.value;
+				
+				controller = SimpleController(condition)
+				.put(\waitConditionEnded, {|...args|
+					{
+						condition.removeDependant(controller);
+						waitConditionsViews.remove(waitCondView);
+						waitCondView.remove;
+						refreshViews.value;
+					}.defer;
+				})
+				.put(\additionalDependency, {|cond, what, desc|
+					{
+						label.string_(
+							"% \nAND: %".format(
+								label.string,
+								desc
+							)
+						)
+					}.defer;
+				});
+			}.defer;
+		});
+		view = View()
+		.layout_(
+			VLayout(*waitConditionsViews)
+		);
+
+		view.minHeight_(100);
+		^view;
+	}
 }
