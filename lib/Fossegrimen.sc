@@ -66,6 +66,9 @@ FossegrimenRuntime{
 			sensorHardwareAddress = NetAddr(
 				ip, port.asInteger
 			);
+			//We presume that the hardware is running now, so
+			//sending the sensorThreshold data to it.
+			this.prSendSensorThresholdToHardware;
 		});
 		this.prInitSoundFilesFolders;
 		if(config.includesKey("startPlayAfterInit"), {
@@ -636,6 +639,10 @@ FossegrimenRuntime{
 	sensorThreshold_{|val|
 		sensorThreshold = val.clip(0.0,1.0);
 		this.changed(\sensorThreshold);
+		this.prSendSensorThresholdToHardware;
+	}
+
+	prSendSensorThresholdToHardware{
 		if(sensorHardwareAddress.notNil, {
 			sensorHardwareAddress.sendMsg('/sensorThreshold', sensorThreshold);
 		})
