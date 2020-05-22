@@ -98,6 +98,7 @@ FossegrimenPlayer{
 			buffersRetainCounts[path] = count + 1;
 			if(buffers[path].notNil, {//this is assertion, should never happen
 				buffer = buffers[path];
+				action.value(buffer);
 			}, {
 				"Could not find buffer: '%'".format(path).warn;
 			});
@@ -211,13 +212,11 @@ FossegrimenPlayer{
 	}
 
 	prStartPlaying{
-		//"Started playing player: %".format(this.class.name).postln;
 		isPlaying = true;
 		this.changed(\isPlaying);
 	}
 
 	prStopPlaying{
-		//"Stopped playing player: %".format(this.class.name).postln;
 		isPlaying = false;
 		this.changed(\isPlaying);
 	}

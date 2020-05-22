@@ -76,7 +76,7 @@ FossegrimenPlayerChannel {
 					channel, synth, fadeOutTime, action
 					|
 					//"Stopping sound file from RAM".postln;
-					player.server.makeBundle(nil, {
+					player.server.makeBundle(0.2, {
 						synth.onFree({
 							action.value;
 						});
@@ -154,7 +154,9 @@ FossegrimenPlayerChannel {
 			);
 			failToLoadBufferProcess = fork{
 				//this is the max wait time until we call it a buffer load failure
-				0.2.wait; 
+				//The default latency for OSC message to scsynth is 0.2,
+				//so we give it 300 ms before calling it failed.
+				0.5.wait; 
 				cond.test = true;
 				cond.signal;
 			};
