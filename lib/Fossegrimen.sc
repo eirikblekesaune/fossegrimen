@@ -20,6 +20,8 @@ FossegrimenRuntime{
 	var presenceModeFosselydProcess;
 	var absenceProcess;
 	var <hangConditions;
+	var <sensorThreshold;
+	var sensorHardwareAddress;
 
 	*new{arg projectRootFolder, doWhenInitialized;
 		^super.new.init(projectRootFolder, doWhenInitialized);
@@ -50,6 +52,20 @@ FossegrimenRuntime{
 
 		if(config.includesKey("soundFileStrategy"), {
 			soundFileStrategy = config["soundFileStrategy"].asSymbol;
+		});
+
+		if(config.includesKey("sensorThreshold"), {
+			sensorThreshold = config["sensorThreshold"].asFloat;
+		}, {
+			sensorThreshold = 0.5;
+		});
+
+		if(config.includesKey("sensorHardwareAddress"), {
+			var ip, port;
+			#ip, port = config["sensorHardwareAddress"].split($:);
+			sensorHardwareAddress = NetAddr(
+				ip, port.asInteger
+			);
 		});
 		this.prInitSoundFilesFolders;
 		if(config.includesKey("startPlayAfterInit"), {
@@ -615,6 +631,14 @@ FossegrimenRuntime{
 		window.onClose_({this.stop;});
 
 		^window;
+	}
+
+	sensorThreshold_{|val|
+		sensorThreshold = val.clip(0.0,1.0);
+		this.changed(\sensorThreshold);
+		if(sensorHardwareAddress.notNil, {
+			sensorHardwareAddress.sendMsg('/sensorThreshold', sensorThreshold);
+		})
 	}
 
 	stop{

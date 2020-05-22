@@ -661,7 +661,7 @@ FossegrimenView {
 				\presenceSensor,
 				{|val|
 					runtime.presenceSensor_(val)
-				}
+				},
 			),
 			this.buildLargeToggleButton(
 				"MUTE SENSOR", unitSize, font, color,
@@ -671,6 +671,18 @@ FossegrimenView {
 				{|val|
 					runtime.sensorMuted_(val)
 				}
+			),
+			this.buildKnobView(
+				label: "Sensor threshold",
+				unitSize: unitSize,
+				font: font.copy.size_(10),
+				color: color,
+				spec: ControlSpec(0.0, 1.0, \lin, units: \t),
+				model: runtime,
+				callback: {|val|
+					runtime.sensorThreshold_(val);
+				},
+				listenTo: \sensorThreshold
 			),
 			VLayout(
 				nil,
