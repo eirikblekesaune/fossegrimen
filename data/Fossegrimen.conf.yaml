@@ -3,7 +3,7 @@
     "musikklyderFolder": "~/sounds/fossegrimen/FOSSEGRIMEN_MUS",
     "soundFileStrategy": "fromRAM",
     "startPlayAfterInit": true,
-    "sensorHardwareAddress": "127.0.0.1:9999",
+    "sensorHardwareAddress": "192.168.0.135:8888",
     "sensorThreshold": "0.75",
     "serverOptions": {
         "protocol": "tcp"
