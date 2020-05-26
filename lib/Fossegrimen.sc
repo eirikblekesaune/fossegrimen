@@ -436,6 +436,15 @@ FossegrimenRuntime{
 					if(absenceProcess.notNil, {
 						absenceProcess.stop;
 					});
+					if(presenceModeProcess.notNil, {
+						presenceModeProcess.stop;
+					});
+					if(presenceModeFosselydProcess.notNil, {
+						presenceModeFosselydProcess.stop;
+					});
+					if(presenceModeMusikklydProcess.notNil, {
+						presenceModeMusikklydProcess.stop;
+					});
 					presenceModeProcess = fork{
 						this.notify("Presence mode started");
 						presenceModeFosselydProcess = fork{
@@ -716,6 +725,7 @@ FossegrimenRuntime{
 	}
 
 	hang{|cond, description|
+		var parentThread = thisThread;
 		//"Waiting for condition".format(cond).postln;
 		//"\t%".format(description).postln;
 		if(hangConditions.includes(cond).not, {
