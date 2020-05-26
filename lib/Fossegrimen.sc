@@ -22,6 +22,7 @@ FossegrimenRuntime{
 	var <hangConditions;
 	var <sensorThreshold;
 	var sensorHardwareAddress;
+	var lastMusikklydDonePlaying;
 
 	*new{arg projectRootFolder, doWhenInitialized;
 		^super.new.init(projectRootFolder, doWhenInitialized);
@@ -47,7 +48,7 @@ FossegrimenRuntime{
 			];
 		});
 		this.prInitTimevars;
-
+		lastMusikklydDonePlaying = Condition.new;
 		hangConditions = IdentitySet.new;
 
 		if(config.includesKey("soundFileStrategy"), {
@@ -402,18 +403,21 @@ FossegrimenRuntime{
 				switch(mode,
 				\absence, {
 					this.notify("Absence mode started");
-					if(presenceModeProcess.notNil, {
-						presenceModeProcess.stop;
-					});
-					if(presenceModeFosselydProcess.notNil, {
-						presenceModeFosselydProcess.stop;
-					});
-					if(presenceModeMusikklydProcess.notNil, {
-						presenceModeMusikklydProcess.stop;
-					});
 					absenceProcess = fork{
 						var fosselydPreWait = this.getTimevarValue(\e);
 						var fosselydFadeInTime;
+						if(forceMode.not, {
+							this.hang(lastMusikklydDonePlaying, "Absence mode Wait for musikklyd done playing before starting fosselyd");
+						});
+						if(presenceModeProcess.notNil, {
+							presenceModeProcess.stop;
+						});
+						if(presenceModeFosselydProcess.notNil, {
+							presenceModeFosselydProcess.stop;
+						});
+						if(presenceModeMusikklydProcess.notNil, {
+							presenceModeMusikklydProcess.stop;
+						});
 						players['musikklyd'].play_(false);
 						this.notify("Waiting % seconds (e) before starting fosselyd in absence mode".format(
 							fosselydPreWait
@@ -433,7 +437,6 @@ FossegrimenRuntime{
 						absenceProcess.stop;
 					});
 					presenceModeProcess = fork{
-						var lastMusikklydDonePlaying = Condition.new;
 						this.notify("Presence mode started");
 						presenceModeFosselydProcess = fork{
 							while({this.mode == \presence}, {
