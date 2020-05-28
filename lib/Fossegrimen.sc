@@ -15,14 +15,15 @@ FossegrimenRuntime{
 	var masterVolume;
 	var <soundFileStrategy = \fromdisk;
 	var <oscResponders;
-	var presenceModeProcess;
 	var presenceModeMusikklydProcess;
 	var presenceModeFosselydProcess;
 	var absenceProcess;
 	var <hangConditions;
 	var <sensorThreshold;
 	var sensorHardwareAddress;
-	var lastMusikklydDonePlaying;
+	var noMusikklydChannelsPlaying;
+	var <threadPool;
+	var timevarKWait;
 
 	*new{arg projectRootFolder, doWhenInitialized;
 		^super.new.init(projectRootFolder, doWhenInitialized);
@@ -48,8 +49,10 @@ FossegrimenRuntime{
 			];
 		});
 		this.prInitTimevars;
-		lastMusikklydDonePlaying = Condition.new;
+		noMusikklydChannelsPlaying = Condition.new(true);
+		timevarKWait = Condition.new;
 		hangConditions = IdentitySet.new;
+		threadPool = List.new;
 
 		if(config.includesKey("soundFileStrategy"), {
 			soundFileStrategy = config["soundFileStrategy"].asSymbol;
@@ -382,17 +385,33 @@ FossegrimenRuntime{
 	}
 
 	prStopProcesses {
-		if(presenceModeProcess.notNil, {
-			presenceModeProcess.stop;
-		});
 		if(presenceModeFosselydProcess.notNil, {
-			presenceModeFosselydProcess.stop;
+			this.prStopThread(\presenceModeFosselydProcess, presenceModeFosselydProcess);
 		});
 		if(presenceModeMusikklydProcess.notNil, {
-			presenceModeMusikklydProcess.stop;
+			this.prStopThread(\presenceModeMusikklydProcess, presenceModeMusikklydProcess);
 		});
 		if(absenceProcess.notNil, {
-			absenceProcess.stop;
+			this.prStopThread(\absenceProcess, absenceProcess);
+		});
+	}
+
+	prStartThread{|name, func|
+		var thread = func.play;
+		this.notify("Adding thread % to pool: %".format(thread.identityHash, thread));
+		threadPool.add((name: name, thread: thread));
+		this.changed(\threadStarted, thread, name);
+	}
+
+	prStopThread{|name, thread|
+		var threadIndex = threadPool.detectIndex({|threadData|
+			threadData[\thread] === thread and: {threadData[\name] == name}
+		});
+		if(threadIndex.notNil, {
+			this.notify("Removing thread % from pool: %".format(thread.identityHash, name));
+			thread.stop;
+			threadPool.removeAt(threadIndex);
+			this.changed(\threadStopped, thread, name);
 		});
 	}
 
@@ -403,20 +422,14 @@ FossegrimenRuntime{
 				switch(mode,
 				\absence, {
 					this.notify("Absence mode started");
-					absenceProcess = fork{
+					absenceProcess = Routine({
 						var fosselydPreWait = this.getTimevarValue(\e);
 						var fosselydFadeInTime;
-						if(forceMode.not, {
-							this.hang(lastMusikklydDonePlaying, "Absence mode Wait for musikklyd done playing before starting fosselyd");
-						});
-						if(presenceModeProcess.notNil, {
-							presenceModeProcess.stop;
-						});
 						if(presenceModeFosselydProcess.notNil, {
-							presenceModeFosselydProcess.stop;
+							this.prStopThread(\presenceModeFosselydProcess, presenceModeFosselydProcess);
 						});
 						if(presenceModeMusikklydProcess.notNil, {
-							presenceModeMusikklydProcess.stop;
+							this.prStopThread(\presenceModeMusikklydProcess, presenceModeMusikklydProcess);
 						});
 						players['musikklyd'].play_(false);
 						this.notify("Waiting % seconds (e) before starting fosselyd in absence mode".format(
@@ -430,96 +443,99 @@ FossegrimenRuntime{
 						players['fosselyd'].play_(true, (
 							fadeInTime: fosselydFadeInTime
 						));
-					};
+					});
+					this.prStartThread(\absenceProcess, absenceProcess);
 				},
 				\presence, {
 					if(absenceProcess.notNil, {
-						absenceProcess.stop;
-					});
-					if(presenceModeProcess.notNil, {
-						presenceModeProcess.stop;
+						this.prStopThread(\absenceProcess, absenceProcess);
 					});
 					if(presenceModeFosselydProcess.notNil, {
-						presenceModeFosselydProcess.stop;
+						this.prStopThread(\presenceModeFosselydProcess, presenceModeFosselydProcess);
 					});
 					if(presenceModeMusikklydProcess.notNil, {
-						presenceModeMusikklydProcess.stop;
+						this.prStopThread(\presenceModeMusikklydProcess, presenceModeMusikklydProcess);
 					});
-					presenceModeProcess = fork{
-						this.notify("Presence mode started");
-						presenceModeFosselydProcess = fork{
-							while({this.mode == \presence}, {
-								var secondsBeforeFosselydStartsFadeout = this.getTimevarValue(\c);
-								var fosselydFadeOutTime;
-								var secondsBeforeRestartFosselyd;
-								var secondsBeforeFosselydRevamp;
-								var fosselydFadeInTime;
-								this.notify("Will fade out fosselyd in % seconds (c)".format(
-									secondsBeforeFosselydStartsFadeout
-								));
-								this.wait(secondsBeforeFosselydStartsFadeout, "Fade out fosselyd");
-								//secondsBeforeFosselydStartsFadeout.wait;
-								fosselydFadeOutTime = this.getTimevarValue(\d);
-								this.notify("Starting fosselyd fadeout with fadeout time: % seconds (d)".format(
-									fosselydFadeOutTime
-								));
-								players['fosselyd'].play_(false, (
-									fadeOutTime: fosselydFadeOutTime
-								));
-								secondsBeforeRestartFosselyd = this.getTimevarValue(\h) + this.getTimevarValue(\e);
-								this.notify("Will wait % seconds before restart fosselyd (h + e) - (c + d)".format(
-									secondsBeforeRestartFosselyd - (secondsBeforeFosselydStartsFadeout - fosselydFadeOutTime)
-								));
-								this.wait(
-									secondsBeforeRestartFosselyd - (secondsBeforeFosselydStartsFadeout - fosselydFadeOutTime),
-									"Restart fosslyd in presence mode"
-								);
-								fosselydFadeInTime = this.getTimevarValue(\f);
-								this.notify("Restarting fosselyd in presence mode with fade in time: %".format(
-									fosselydFadeInTime
-								));
-								players['fosselyd'].play_(true, (
-									fadeInTime: fosselydFadeInTime
-								));
-								this.notify("Will wait for all musikklyd channels to end before considering revamp fosselyd");
-								this.hang(lastMusikklydDonePlaying, "Fosslyd wait for musikklyd channels done playing");
-								secondsBeforeFosselydRevamp = this.getTimevarValue(\k);
-								this.notify("All musiklyd channels done. Will wait % seconds (k) before considering revamp".format(
-									secondsBeforeFosselydRevamp
-								));
-								this.wait(secondsBeforeFosselydRevamp, "Fosselyd wait before considering revamp");
-								this.notify("Revamping fosselyd in presence mode if mode is still presence");
-							});
-						};
-						presenceModeMusikklydProcess = fork{
-							var musikklydMaxDuration;
-							while({this.mode == \presence}, {
-								var secondsBeforeMusikklydRevamp;
-								musikklydMaxDuration = this.getTimevarValue(\g) + this.getTimevarValue(\h);
-								this.notify("Starting musikklyd with max duration % seconsd (g + h)".format(
-									musikklydMaxDuration
-								));
-								players['musikklyd'].play_(true);
-								lastMusikklydDonePlaying.test = false;
-								this.wait(musikklydMaxDuration, "Turning off musikklyd max duration");
-								players['musikklyd'].play_(false, (
-									onAllStopped: {
-										this.notify("All channels stopped");
-										lastMusikklydDonePlaying.test = true;
-										lastMusikklydDonePlaying.signal;
-									}
-								));
-								this.notify("Will wait for all musiklyd channels to end");
-								this.hang(lastMusikklydDonePlaying, "Wait for musikklyd channels done playing");
-								secondsBeforeMusikklydRevamp = this.getTimevarValue(\k);
-								this.notify("Will wait % seconds before considering to revamp musikklyd".format(
-									secondsBeforeMusikklydRevamp
-								));
-								this.wait(secondsBeforeMusikklydRevamp, "Starting musikklyd revamp");
-								this.notify("Revamping musikklyd now is mode is presence");
-							});
-						};
-					};
+					this.notify("Presence mode started");
+					presenceModeFosselydProcess = Routine({
+						while({this.mode == \presence}, {
+							var secondsBeforeFosselydStartsFadeout = this.getTimevarValue(\c);
+							var fosselydFadeOutTime;
+							var secondsBeforeRestartFosselyd;
+							var secondsBeforeFosselydRevamp;
+							var fosselydFadeInTime;
+							this.notify("Will fade out fosselyd in % seconds (c)".format(
+								secondsBeforeFosselydStartsFadeout
+							));
+							this.wait(secondsBeforeFosselydStartsFadeout, "Fade out fosselyd");
+							//secondsBeforeFosselydStartsFadeout.wait;
+							fosselydFadeOutTime = this.getTimevarValue(\d);
+							this.notify("Starting fosselyd fadeout with fadeout time: % seconds (d)".format(
+								fosselydFadeOutTime
+							));
+							players['fosselyd'].play_(false, (
+								fadeOutTime: fosselydFadeOutTime
+							));
+							secondsBeforeRestartFosselyd = this.getTimevarValue(\h) + this.getTimevarValue(\e);
+							this.notify("Will wait % seconds before restart fosselyd (h + e) - (c + d)".format(
+								secondsBeforeRestartFosselyd - (secondsBeforeFosselydStartsFadeout - fosselydFadeOutTime)
+							));
+							this.wait(
+								secondsBeforeRestartFosselyd - (secondsBeforeFosselydStartsFadeout - fosselydFadeOutTime),
+								"Restart fosslyd in presence mode"
+							);
+							fosselydFadeInTime = this.getTimevarValue(\f);
+							this.notify("Restarting fosselyd in presence mode with fade in time: %".format(
+								fosselydFadeInTime
+							));
+							players['fosselyd'].play_(true, (
+								fadeInTime: fosselydFadeInTime
+							));
+							this.notify("Will wait for all musikklyd channels to end before considering revamp fosselyd");
+							this.hang(noMusikklydChannelsPlaying, "Fosslyd wait for musikklyd channels done playing");
+							//secondsBeforeFosselydRevamp = this.getTimevarValue(\k);
+							//this.notify("All musiklyd channels done. Will wait % seconds (k) before considering revamp".format(
+							//	secondsBeforeFosselydRevamp
+							//));
+							//this.wait(secondsBeforeFosselydRevamp, "Fosselyd wait before considering revamp");
+							this.hang(timevarKWait, "Wait for (k) wait in musikklyd to end");
+							this.notify("Revamping fosselyd in presence mode if mode is still presence");
+						});
+					});
+					presenceModeMusikklydProcess = Routine({
+						var musikklydMaxDuration;
+						while({this.mode == \presence}, {
+							var secondsBeforeMusikklydRevamp;
+							musikklydMaxDuration = this.getTimevarValue(\g) + this.getTimevarValue(\h);
+							this.notify("Starting musikklyd with max duration % seconsd (g + h)".format(
+								musikklydMaxDuration
+							));
+							players['musikklyd'].play_(true);
+							noMusikklydChannelsPlaying.test = false;
+							this.wait(musikklydMaxDuration, "Turning off musikklyd max duration");
+							players['musikklyd'].play_(false, (
+								onAllStopped: {
+									this.notify("All channels stopped");
+									noMusikklydChannelsPlaying.test = true;
+									noMusikklydChannelsPlaying.signal;
+								}
+							));
+							this.notify("Will wait for all musiklyd channels to end");
+							timevarKWait.test = false;
+							this.hang(noMusikklydChannelsPlaying, "Wait for musikklyd channels done playing");
+							secondsBeforeMusikklydRevamp = this.getTimevarValue(\k);
+							this.notify("Will wait % seconds before considering to revamp musikklyd".format(
+								secondsBeforeMusikklydRevamp
+							));
+							this.wait(secondsBeforeMusikklydRevamp, "Starting musikklyd revamp");
+							timevarKWait.test = true;
+							timevarKWait.signal;
+							this.prUpdateSensorForMode;
+							this.notify("Revamping musikklyd now in presence mode");
+						});
+					});
+					this.prStartThread(\presenceModeFosselydProcess, presenceModeFosselydProcess);
+					this.prStartThread(\presenceModeMusikklydProcess, presenceModeMusikklydProcess);
 //					//wait g + h
 //					//si fra at dette blir siste runde til player
 //					//wait i k sekunder
@@ -551,16 +567,23 @@ FossegrimenRuntime{
 				this.notify("Someone left");
 			});
 			this.changed(\presenceSensor);
-			if(sensorMuted.not and: {isPlaying}, {
-				var newMode;
-				if(presenceSensor, {
-					newMode = \presence;
-				}, {
-					newMode = \absence;
-				});
-				this.mode_(newMode);
-			});
+			this.prUpdateSensorForMode;
 		});
+	}
+
+	prUpdateSensorForMode{
+		if(sensorMuted.not and: {isPlaying}, {
+			//if the musikklyd is playing the sensor
+			//won't control the mode until the last musikklyd
+			//player channel has stopped
+			if(noMusikklydChannelsPlaying.test, {
+				if(presenceSensor, {
+					this.mode_(\presence);
+				}, {
+					this.mode_(\absence);
+				});
+			});
+		})
 	}
 
 	masterVolume{
@@ -638,7 +661,8 @@ FossegrimenRuntime{
 				).margins_(0).spacing_(0),
 				HLayout(
 					FossegrimenView.buildCountdownPanel(this, viewSettings),
-					FossegrimenView.buildWaitConditionsPanel(this, viewSettings)
+					FossegrimenView.buildWaitConditionsPanel(this, viewSettings),
+					FossegrimenView.buildThreadPoolPanel(this, viewSettings)
 				),
 				nil
 			)

@@ -855,4 +855,69 @@ FossegrimenView {
 		view.minHeight_(100);
 		^view;
 	}
+
+	*buildThreadPoolPanel{|runtime, settings|
+		var view;
+		var font;
+		var threadViews = List.new;
+		var makeThreadView;
+		var threadToView = IdentityDictionary.new;
+		var refreshViews = {
+			view.layout_(
+				VLayout(
+					*threadViews ++ [nil]
+				).spacing_(1)
+			)
+		};
+		if(settings.notNil, {
+			if(settings.includesKey(\font), {
+				font = settings[\font];
+			})
+		});
+		font = font ? Font("Avenir", 12);
+		makeThreadView = {|thread, name|
+			var hash;
+			hash = thread.identityHash;
+			StaticText()
+			.string_(
+				"Thread[%]: %".format(hash, name)
+			)
+			.font_(font.copy.size_(10));
+		};
+
+		SimpleController(runtime)
+		.put(\threadStarted, {|r, what, thread, threadName|
+			{
+				var threadView = makeThreadView.value(thread, threadName);
+				threadViews.add(threadView);
+				threadToView.put(thread, threadView);
+				refreshViews.value;
+			}.defer;
+		})
+		.put(\threadStopped, {|r, what, thread, threadName|
+			{
+				if(threadToView.includesKey(thread), {
+					var threadView;
+					threadView = threadToView.removeAt(thread);
+					threadViews.remove(threadView);
+					threadView.remove;
+					refreshViews.value;
+				});
+			}.defer;
+		});
+		runtime.threadPool.do({|threadEntry|
+			var name, thread;
+			var threadView;
+			name = threadEntry[\name];
+			thread = threadEntry[\thread];
+			threadView = makeThreadView.value(thread, name);
+			threadToView.put(thread, threadView);
+			threadViews.add(threadView);
+		});
+
+		view = View();
+		refreshViews.value;
+		view.minHeight_(100);
+		^view;
+	}
 }
