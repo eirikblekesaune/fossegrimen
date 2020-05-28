@@ -31,6 +31,7 @@ FossegrimenRuntime{
 
 	init{|projectRootFolder_, doWhenInitialized|
 		var startPlayAfterInit = false;
+		var startPreset;
 		projectRootPathName = PathName(projectRootFolder_);
 		"Fossegrimen running from path: %".format(
 			projectRootPathName.fullPath
@@ -48,7 +49,10 @@ FossegrimenRuntime{
 				"musikklyderFolder" -> "sounds/musikklyder".resolveRelative
 			];
 		});
-		this.prInitTimevars;
+		if(config.includesKey("startPreset"), {
+			startPreset = config["startPreset"].asSymbol;
+		});
+		this.prInitTimevars(startPreset ? \default);
 		noMusikklydChannelsPlaying = Condition.new(true);
 		timevarKWait = Condition.new;
 		hangConditions = IdentitySet.new;
@@ -106,7 +110,7 @@ FossegrimenRuntime{
 		};
 	}
 
-	prInitTimevars{
+	prInitTimevars{|startPreset|
 	 	var timevarSpec = {ControlSpec(0.01, 360.0, \amp, units: \secs)};
 		timevarPresets = Dictionary.new;
 		timevars = (
@@ -179,7 +183,7 @@ FossegrimenRuntime{
 			j: timevars[\j].val,
 			k: timevars[\k].val
 		));
-		this.currentTimevarPreset_(\default);
+		this.currentTimevarPreset_(startPreset ? \default);
 	}
 
 	currentTimevarPreset_{|presetName|

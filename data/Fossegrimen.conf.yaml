@@ -3,6 +3,7 @@
     "musikklyderFolder": "~/sounds/fossegrimen/FOSSEGRIMEN_MUS",
     "soundFileStrategy": "fromRAM",
     "startPlayAfterInit": true,
+    "startPreset": "default",
     "sensorHardwareAddress": "192.168.0.135:8888",
     "sensorThreshold": "0.75",
     "serverOptions": {
