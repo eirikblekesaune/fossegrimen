@@ -325,32 +325,45 @@ FossegrimenView {
 		|
 		label, options, callback,
 		unitSize, font, color, listenTo,
-		model
+		model, itemsListenTo
 		|
 		var view = View();
 		var widgets = ();
 		var updater;
-		var valueIndex = options.detectIndex({arg it;
+		var controller;
+		var valueOptions = options.copy;
+		var valueIndex = valueOptions.detectIndex({arg it;
 			it == model.perform(listenTo ? \value);
 		});
 		widgets.put(\menu, 
 			PopUpMenu()
 			.font_(font)
 			.background_(color)
-			.items_(options)
+			.items_(valueOptions)
 			.action_({|m|
 				callback.value(m.item);
 			})
 			.value_(valueIndex)
 		);
-		SimpleController(model).put(listenTo ? \value, {
+		controller = SimpleController(model).put(listenTo ? \value, {
 			{
 				widgets[\menu].value_(
-					options.detectIndex({|it|
+					valueOptions.detectIndex({|it|
 						it == model.perform(listenTo ? \value)
 					})
 				);
 			}.defer;
+		});
+		if(itemsListenTo.notNil, {
+			controller.put(itemsListenTo, {
+				"Updateing preset names in gui".postln;
+				{
+					valueOptions = model.perform(itemsListenTo);
+					widgets[\menu].items_(
+						valueOptions
+					);
+				}.defer;
+			});
 		});
 		view.layout_(
 			VLayout(
@@ -538,9 +551,39 @@ FossegrimenView {
 								runtime.currentTimevarPreset_(val.asSymbol);
 							},
 							unitSize, font, color, \currentTimevarPreset,
-							runtime
+							runtime,
+							\presetNames
 						)
 					),
+					Button()
+					.states_([["Store\npreset", Color.black, color]])
+					.font_(font)
+					.action_({
+						{
+							var win = Window.new;
+							win.layout_({
+								var label, textField;
+								label = StaticText()
+								.string_("Preset name:");
+
+								textField = TextField()
+								.string_("");
+
+								VLayout(
+									label,
+									textField,
+									Button()
+									.states_([["Store", Color.black, Color.grey]])
+									.action_({
+										runtime.storeCurrentTimevarsToPreset(
+											textField.string
+										);
+										win.close;
+									}),
+								);
+							}.value).front;
+						}.defer;
+					}),
 					nil
 				),
 				nil
