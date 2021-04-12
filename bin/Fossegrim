@@ -7,4 +7,7 @@ if [ ! -f $SCLANG_CONF_PATH ]; then
 	touch $SCLANG_CONF_PATH
 	echo "includePaths: [ $(realpath $PROJECT_DIR/lib) ]" > $SCLANG_CONF_PATH
 fi
+sleep 10 # wait for network to come up
+amixer -c 1 set "UMC404HD 192k Output",0 100%
 /usr/bin/env -S sclang -l $SCLANG_CONF_PATH -d $PROJECT_DIR $PROJECT_DIR/src/FossegrimenStartup.scd
+# FOR LOGGING 2> ~/scerr.txt 1> ~/scout.txt

@@ -638,8 +638,20 @@ FossegrimenRuntime{
 			this.changed(\sensorMuted);
 		}
 
+		isOpeningTime{
+			^if (config.includesKey("openingTime") && config.includesKey("closingTime"), {
+				var t = Date.localtime;
+				var start = config["openingTime"].asSecs;
+				var end = config["closingTime"].asSecs;
+				var now = (3600*t.hour) + (60*t.minute);
+				if (now > start and: { now < end } ) { true; } { false; };
+			}, { true });
+		}
+
 		presenceSensor_{|aBool|
-			if(presenceSensor != aBool, {
+			// allow all sensors readings inside opening time, but always all sensor off
+			var allowsensor = this.isOpeningTime() || (aBool == false);
+			if((presenceSensor != aBool) && ( allowsensor ), {
 				if(aBool, {
 					presenceSensor = true;
 					this.notify("Someone arrived");

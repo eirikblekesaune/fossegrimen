@@ -4,9 +4,11 @@
     "soundFileStrategy": "fromRAM",
     "startPlayAfterInit": true,
     "startPreset": "default",
-    "sensorHardwareAddress": "192.168.0.135:8888",
+    "sensorHardwareAddress": "192.168.165.135:8888",
     "sensorThreshold": "0.75",
     "serverOptions": {
         "protocol": "tcp"
-    }
+    },
+    "openingTime": "09:00:00",
+    "closingTime": "20:00:00"
 }
