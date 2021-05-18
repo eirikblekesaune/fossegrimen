@@ -23,6 +23,8 @@ FossegrimenRuntime{
 	var noMusikklydChannelsPlaying;
 	var <threadPool;
 	var timevarKWait;
+	var <musikklydVolume;
+	var <fosselydVolume;
 
 	*new{arg projectRootFolder, doWhenInitialized;
 		^super.new.init(projectRootFolder, doWhenInitialized);
@@ -85,6 +87,16 @@ FossegrimenRuntime{
 			}, {
 				startPlayAfterInit = false;
 			});
+		});
+		if(config.includesKey("musikklydVolume"), {
+			musikklydVolume = config["musikklydVolume"].asFloat;
+		}, {
+			musikklydVolume = 0.0;
+		});
+		if(config.includesKey("fosselydVolume"), {
+			fosselydVolume = config["fosselydVolume"].asFloat;
+		}, {
+			fosselydVolume = 0.0;
 		});
 
 		fork{
@@ -307,6 +319,7 @@ FossegrimenRuntime{
 		);
 		cond.wait;
 		cond.test = false;
+		fosselydPlayer.volume_(fosselydVolume);
 		musikklydPlayer = MusikklydPlayer(
 			this,
 			config["musikklyderFolder"].standardizePath,
@@ -319,6 +332,7 @@ FossegrimenRuntime{
 			}
 		);
 		cond.wait;
+		musikklydPlayer.volume_(musikklydVolume);
 		players['fosselyd'] = fosselydPlayer;
 		players['musikklyd'] = musikklydPlayer;
 
