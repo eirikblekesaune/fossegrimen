@@ -12,7 +12,6 @@ FossegrimenRuntime{
 	var <presenceSensor = false;
 	var <sensorMuted = false;
 	var runLoop;
-	var masterVolume;
 	var <soundFileStrategy = \fromdisk;
 	var <oscResponders;
 	var presenceModeMusikklydProcess;
@@ -90,13 +89,19 @@ FossegrimenRuntime{
 
 		fork{
 			var cond = Condition.new;
+			var masterVolume;
+			if(config.includesKey("masterVolume"), {
+				masterVolume = config["masterVolume"].asFloat;
+			}, {
+				masterVolume = 0.0;
+			});
 			server = this.class.startServer(this, cond, config["serverOptions"]);
 			if(server.isNil, {
 				Error("[Fossegrimen] Server failed to start").throw;
 			});
 			outbus = Bus.audio(server, 2);
 			server.sync;
-			this.masterVolume_(0);
+			this.masterVolume_(masterVolume);
 			{server.makeWindow;}.defer;
 
 			this.prInitPlayers(cond);
