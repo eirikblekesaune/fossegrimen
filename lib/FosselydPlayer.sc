@@ -1,6 +1,12 @@
 FosselydPlayer : FossegrimenPlayer {
+	var soundFileSelector;
 
 	prInitChannels{
+		soundFileSelector = Pn(
+			Plazy({
+				Pshuf(soundFilesPathNames, 1)
+			})
+		).asStream;
 		channels.addAll([
 			FossegrimenPlayerChannel(
 				name: 'A',
@@ -14,7 +20,7 @@ FosselydPlayer : FossegrimenPlayer {
 	}
 
 	getRandomSoundFilePathNameForChannel{|channel|
-		^soundFilesPathNames.choose;//TODO filter this for channel type
+		^soundFileSelector.next;
 	}
 
 	soundFileNamePattern {
